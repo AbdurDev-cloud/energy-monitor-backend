@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home Energy Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        header, footer {
+            background-color: #0A74DA;
+            color: white;
+            padding: 10px;
+        }
+        .chart-container {
+            width: 80%;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Smart Home Energy Dashboard</h1>
+    </header>
+
+    <div class="chart-container">
+        <h2>Live Power Usage (Watts) by Appliance</h2>
+        <canvas id="powerChart"></canvas>
+    </div>
+
+    <footer>
+        <p>IoT Energy Monitor © 2025</p>
+    </footer>
+
+   <script>
+    let chartInstance = null; // 🔁 Track the existing chart instance
+
+    async function fetchData() {
+        try {
+            const res = await fetch('http://127.0.0.1:5000/readings');
+            const data = await res.json();
+
+            // ✅ Simulate appliance-wise data (you can later replace this with real keys from MongoDB)
+            const appliances = ['AC', 'TV', 'Fridge', 'Washing Machine', 'Heater'];
+            const powerValues = appliances.map(() => Math.random() * 2000);  // Fake wattage values
+
+            const ctx = document.getElementById('powerChart').getContext('2d');
+
+            // 🔥 Destroy previous chart if exists
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: appliances,
+                    datasets: [{
+                        label: 'Power Usage (Watts)',
+                        data: powerValues,
+                        backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336'],
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.raw.toFixed(1)} W`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Watts'
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error("Fetch error:", err);
+        }
+    }
+
+    // 🔄 Update every 5 seconds
+    setInterval(fetchData, 5000);
+    fetchData();  // First call
+</script>
+
+</body>
+</html>
