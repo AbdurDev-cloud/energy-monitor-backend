@@ -5,78 +5,118 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
+            margin:0;
+            background-color: #f4f4f4 ;
         }
         header, footer {
             background-color: #0A74DA;
             color: white;
-            padding: 10px;
+            text-align: center;
+            padding: 1rem;
+            margin-top:auto;
         }
-        .chart-container {
-            width: 80%;
-            margin: auto;
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            padding: 2rem;
+        }
+        select{
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+        .section {
+            background-color:white;
+            border-radius: 10px;
+            box-shadow:  0 0 10px rgba(0, 0, 0, 0.1);
+            padding:1.5rem;
+            margin: 1rem;
+            margin-bottom: 2rem;
+            flex: 1 1 40%;
+            min-width: 300px;
+        }
+        canvas {
+            max-width: 100%;
+            height: 200px;
+        }
+        #timestamp {
+            font-size: 0.9rem;
+            color: gray;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Smart Home Energy Dashboard</h1>
-    </header>
+<header>
+    <h1>Smart Home Energy Dashboard</h1>
+</header>
 
-    <div class="chart-container">
-        <h2>Live Power Usage (Watts) by Appliance</h2>
-        <canvas id="powerChart"></canvas>
+<div class="container">
+    <!--  Live Current Usage Chart -->
+    <div class="section">
+        <h2>Live Current Usage (Amps)</h2>
+        <canvas id="liveChart"></canvas>
+        <div id="timestamp">Last updated: --</div>
     </div>
 
-    <footer>
-        <p>IoT Energy Monitor © 2025</p>
-    </footer>
+    <!--  Appliance Selector and Breakdown -->
+    <div class="section">
+        <h2>Appliance Power Breakdown</h2>
+        <label for="applianceSelect">Choose appliance:</label>
+        <select id="applianceSelect" onchange="showGraph('Hourly')">
+            <option value="AC">AC</option>
+            <option value="Fridge">Fridge</option>
+            <option value="TV">TV</option>
+            <option value="Washing Machine">Washing Machine</option>
+            <option value="Heater">Heater</option>
+        </select>
 
-   <script>
-    let chartInstance = null; // 🔁 Track the existing chart instance
+        <canvas id="applianceChart"></canvas>
+    </div>
+</div>
 
+<footer>
+    <p>IoT Energy Monitor &copy; 2025</p>
+</footer>
+
+<script>
+    let liveChartInstance = null;
+    let applianceChart = null;
+
+    //  Live current chart (Amps)
     async function fetchData() {
         try {
             const res = await fetch('http://127.0.0.1:5000/readings');
             const data = await res.json();
 
-            // ✅ Simulate appliance-wise data (you can later replace this with real keys from MongoDB)
-            const appliances = ['AC', 'TV', 'Fridge', 'Washing Machine', 'Heater'];
-            const powerValues = appliances.map(() => Math.random() * 2000);  // Fake wattage values
+            const recent = data.slice(-20); // show last 20 readings
+            const labels = recent.map(d => new Date(d.timestamp).toLocaleTimeString());
+            const currentValues = recent.map(d => d.watts);
 
-            const ctx = document.getElementById('powerChart').getContext('2d');
+            const ctx = document.getElementById('liveChart').getContext('2d');
+            if (liveChartInstance) liveChartInstance.destroy();
 
-            // 🔥 Destroy previous chart if exists
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
-
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
+            liveChartInstance = new Chart(ctx, {
+                type: 'line',
                 data: {
-                    labels: appliances,
+                    labels,
                     datasets: [{
-                        label: 'Power Usage (Watts)',
-                        data: powerValues,
-                        backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336'],
-                        borderRadius: 5
+                        label: 'Power (W)',
+                        data: currentValues,
+                        borderColor: '#2196f3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        tension: 0.3,
+                        pointRadius: 3
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: {
-                        legend: {
-                            display: true
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.raw.toFixed(1)} W`
-                            }
-                        }
-                    },
+                    maintainAspectRatio: true,
                     scales: {
                         y: {
                             beginAtZero: true,
@@ -84,18 +124,89 @@
                                 display: true,
                                 text: 'Watts'
                             }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 90,
+                                minRotation: 45
+                            }
                         }
+                    },
+                    plugins: {
+                        legend: { display: true }
                     }
                 }
             });
+
+            //  Update timestamp
+            const now = new Date();
+            document.getElementById("timestamp").innerText = `Last updated: ${now.toLocaleTimeString()}`;
         } catch (err) {
             console.error("Fetch error:", err);
         }
     }
 
-    // 🔄 Update every 5 seconds
+    //  Appliance power breakdown (simulated for now)
+    function showGraph(type) {
+        const selected = document.getElementById('applianceSelect').value;
+
+        //  Simulate 24 hourly data-points
+        const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+        const dataPoints = labels.map(() => Math.floor(Math.random() * 1500) + 100); // 100W–1600W
+
+        const ctx = document.getElementById('applianceChart').getContext('2d');
+        if (applianceChart) applianceChart.destroy();
+
+        applianceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `${selected} - ${type} Usage`,
+                    data: dataPoints,
+                    backgroundColor: getColorByAppliance(selected),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: true },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.raw} W`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Watts'
+                        }
+                    }
+                }
+            }
+        });
+
+        function getColorByAppliance(name) {
+            const colors = {
+                'AC': '#2196f3',
+                'TV': '#4caf50',
+                'Fridge': '#ff9800',
+                'Washing Machine': '#9c27b0',
+                'Heater': '#f44336'
+            };
+            return colors[name] || '#607d8b';
+        }
+    }
+
+    //  Auto update live chart every 5 seconds
     setInterval(fetchData, 5000);
-    fetchData();  // First call
+    fetchData(); // Initial fetch
+    showGraph('Hourly'); // Default appliance graph
 </script>
 
 </body>
